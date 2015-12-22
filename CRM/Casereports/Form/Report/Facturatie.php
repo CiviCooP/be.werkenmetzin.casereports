@@ -272,7 +272,7 @@ inner join civicrm_contact $c2 on ${c2}.id=${ccc}.contact_id
                     // not to be handled here
                     if ($fieldName == 'my_cases') {
                         $session = CRM_Core_Session::singleton();
-                        if ($contactID = $session->get('userID') && (CRM_Utils_Array::value("{$fieldName}_value", $this->_params) ==  1)) {
+                        if (($contactID = $session->get('userID')) && (CRM_Utils_Array::value("{$fieldName}_value", $this->_params) ==  1)) {
                             $clause = "({$this->_aliases['civicrm_contact']}.id = '{$contactID}' AND {$this->_aliases['civicrm_relationship']}.is_active = '1' AND ({$this->_aliases['civicrm_relationship']}.start_date IS NULL OR DATE({$this->_aliases['civicrm_relationship']}.start_date) <= NOW()) AND ({$this->_aliases['civicrm_relationship']}.end_date IS NULL OR DATE({$this->_aliases['civicrm_relationship']}.end_date) >= NOW()))";
                         }
                     } elseif (!empty($field['pseudofield'])) {
