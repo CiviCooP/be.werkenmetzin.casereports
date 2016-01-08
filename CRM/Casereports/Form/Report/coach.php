@@ -7,29 +7,45 @@ class CRM_Casereports_Form_Report_coach extends CRM_Report_Form {
 	protected $_customGroupExtends = FALSE;
 	protected $_customGroupGroupBy = FALSE;
 	protected $_caseType, $_customGroup, $_customField, $_activityTypesOptionGroup, $_activityTypes, $_statusGroup, $_openedCaseStatusses, $_coachIdentifier;
+	protected $rel_types;
+	protected $show_coach = false;
+	protected $_noFields = true;
 	
 	function __construct() {
+
+		$this->fetchCaseStatusses();
+		$rels = CRM_Core_PseudoConstant::relationshipType();
+		foreach ($rels as $relid => $v) {
+			$this->rel_types[$relid] = $v['label_b_a'];
+		}
+
 		$this->_groupFilter = FALSE;
 		$this->_tagFilter   = FALSE;
 		$this->_columns = array(
 			'civicrm_activity`' => array(
 				'dao' => 'CRM_Activity_DAO_Activity',
 				'fields' => array(
-					'activity_id' => array(
-						'no_display' => TRUE,
-						'required' => TRUE,
+				),
+				'filters' => array(
+					'case_status' => array(
+						'title' => ts('Status'),
+						'operatorType' => CRM_Report_Form::OP_MULTISELECT,
+						'options' => CRM_Core_OptionGroup::values('case_status'),
+						'pseudofield' => true,
+						'default' => $this->_openedCaseStatusses,
 					),
-					'activity_type_id' => array(
-						'title' => 'Type Activiteit'
+					'case_role' => array(
+						'title' => ts('Role on case'),
+						'operatorType' => CRM_Report_Form::OP_MULTISELECT,
+						'options' => $this->rel_types,
 					),
-					'activity_date_time' => array(
-						'title' => 'Datum Activiteit'
-					),
-					'activity_duration' => array(
-						'title' => 'Duur Activiteit'
-					),
-					'activity_status_id' => array(
-						'title' => 'Status Activiteit'
+					'my_cases' => array(
+						'title' => ts('My cases'),
+						'type' => CRM_Utils_Type::T_BOOLEAN,
+						'operatorType' => CRM_Report_Form::OP_SELECT,
+						'options' => array('0' => ts('No'), '1' => ts('Yes')),
+						'default' => '1',
+						'pseudofield' => TRUE,
 					),
 				)
 			),
@@ -39,7 +55,6 @@ class CRM_Casereports_Form_Report_coach extends CRM_Report_Form {
 		$this->fetchChequenummer();
 		$this->fetchActivityTypes();
 		$this->fetchStatusGroup();
-		$this->fetchCaseStatusses();
 		$this->fetchCoachIdentifier();
 	}
 	
@@ -82,14 +97,13 @@ class CRM_Casereports_Form_Report_coach extends CRM_Report_Form {
 	
 	function fetchCaseStatusses() {
 		try {
-			$this->_openedCaseStatusses					= "(";
+			$this->_openedCaseStatusses					= array();
 			$_caseStatusGroup							= civicrm_api3('OptionGroup','getsingle',array("name" => "case_status"));
 			$_openedStatusses 							= civicrm_api3('OptionValue','get',array("grouping" => "Opened", "option_group_id" => $_caseStatusGroup['id']));
 			if(isset($_openedStatusses['values'])) {
 				foreach($_openedStatusses['values'] as $_status){
-					$this->_openedCaseStatusses .= $_status['value'].",";
+					$this->_openedCaseStatusses[] = $_status['value'];
 				}
-				$this->_openedCaseStatusses = substr($this->_openedCaseStatusses, 0, -1).")";
 			} else {
 				throw new Exception(1);
 			}
@@ -141,12 +155,26 @@ class CRM_Casereports_Form_Report_coach extends CRM_Report_Form {
 	}
 	
 	function where() {
-		$this->_where = "
-			WHERE `ca`.`is_current_revision` = 1
-			AND `cr`.`contact_id_b` = ".$this->coachIdentifier."
-			AND `cc`.`status_id` IN ".$this->_openedCaseStatusses."
-			AND `ca`.`activity_type_id` IN (".$this->_activityTypes->intakegesprek['value'].", ".$this->_activityTypes->verdiepingsgesprek['value'].", ".$this->_activityTypes->synthese['value'].")
-		";
+
+		$case_status_op = $this->getSQLOperator($this->_params['case_status_op']);
+		$case_status = implode(",", $this->_params['case_status_value']);
+
+		$case_role_op = $this->getSQLOperator($this->_params['case_role_op']);
+		$case_role = implode(",", $this->_params['case_role_value']);
+
+		$this->_where = " WHERE `ca`.`is_current_revision` = 1";
+		if ($this->params['my_cases_value']) {
+			$this->_where .= " AND `cr`.`contact_id_b` = " . $this->coachIdentifier;
+		} else {
+			$this->show_coach = true;
+		}
+		if (is_array($case_status) && count($case_status)) {
+			$this->_where .= " AND `cc`.`status_id` " . $case_status_op . " (" . $case_status . ")";
+		}
+		if (is_array($case_role) && count($case_role)) {
+			$this->_where .= " AND `cr`.`relationship_type_id` " . $case_role_op . " (" . $case_role . ")";
+		}
+		$this->_where .= " AND `ca`.`activity_type_id` IN (".$this->_activityTypes->intakegesprek['value'].", ".$this->_activityTypes->verdiepingsgesprek['value'].", ".$this->_activityTypes->synthese['value'].")";
 	}
 	
 	function orderBy() {
@@ -157,36 +185,99 @@ class CRM_Casereports_Form_Report_coach extends CRM_Report_Form {
 	
 	function postProcess() {
 		$this->beginPostProcess();
+
+		if ($this->params['my_cases_value']) {
+			$this->show_coach = false;
+		} else {
+			$this->show_coach = true;
+		}
+
 		$this->_columnHeaders = array(
+			'coach' => array("title" => 'Coach', "no_display" => !$this->show_coach),
 			'activity_type' => array("title" => 'Type Activiteit'), 
 			'activity_date' => array("title" => 'Datum Activiteit'), 
 			'activity_duration' => array("title" => 'Duur Activiteit'), 
 			'activity_status' => array("title" => 'Status Activiteit'),
-			'case_id' => array("title" => 'case_id', "no_display" => true),
+			'case_id' => array("title" => 'case_id', "no_display" => true,),
 			'case_subject' => array("title" => 'case_subject', "no_display" => true),
+			'case_title' => array("title" => 'case_title', "no_display" => true),
 			'case_start_date' => array("title" => 'case_start_date', "no_display" => true),
 			'case_end_date' => array("title" => 'case_end_date', "no_display" => true),
 			'client' => array("title" => 'client', "no_display" => true),
-			'coach' => array("title" => 'coach', "no_display" => true),
-			'chequenummer' => array("title" => 'chequenummer', "no_display" => true)			
+			'chequenummer' => array("title" => 'chequenummer', "no_display" => true)
 		);
 		$sql = $this->buildQuery(TRUE);
-		if(strpos($sql, "LIMIT")) $sql = substr($sql, 0, strpos($sql, "LIMIT"));
+		//echo $sql; exit();
+		//if(strpos($sql, "LIMIT")) $sql = substr($sql, 0, strpos($sql, "LIMIT"));
 		$rows = array();
 		$this->buildRows($sql, $rows);
-		$this->rearrangeRows($rows);
+		//$this->rearrangeRows($rows);
 		$this->formatDisplay($rows);
+		$this->assign('sections', array('case_title' => array('title' => 'Dossier')));
 		$this->doTemplateAssignment($rows);
 		$this->endPostProcess($rows);
 	}
-	
+
+	function alterDisplay(&$rows)
+	{
+		$sectionTotals = array();
+		$i = 0;
+		$previous_case_id = false;
+		$previous_case_title = false;
+		$original_rows = $rows;
+		foreach($original_rows as $key => $row) {
+			$case_id = $row['case_id'];
+			$case_title = '';
+			if ($row['client']) {
+				if (strlen($case_title)) {
+					$case_title .= ' - ';
+				}
+				$case_title .= $row['client'];
+			}
+			if ($row['chequenummer']) {
+				if (strlen($case_title)) {
+					$case_title .= ' - ';
+				}
+				$case_title .= $row['chequenummer'];
+			}
+			if ($row['case_start_date']) {
+				if (strlen($case_title)) {
+					$case_title .= ' - ';
+				}
+				$case_title .= $row['case_start_date'];
+			}
+			$rows[$i]['case_title'] = $case_title;
+			if (!isset($sectionTotals[$case_title])) {
+				$sectionTotals[$case_title] = 0;
+			}
+			$sectionTotals[$case_title] = $sectionTotals[$case_title] + $row['activity_duration'];
+
+			if ($previous_case_title != false && $previous_case_title != $case_title) {
+				$total_row = array(
+					'case_id' => $previous_case_id,
+					'case_title' => $previous_case_title,
+					'activity_type' => '<strong>Totaal</strong>',
+					'activity_duration' => '<strong>'.$sectionTotals[$previous_case_title].'</strong>',
+				);
+
+				array_splice( $rows, $i, 0, array($total_row) );
+				$i++;
+			}
+
+			$i++;
+			$previous_case_id = $case_id;
+			$previous_case_title = $case_title;
+		}
+		$this->assign('sectionTotals', $sectionTotals);
+	}
+
 	function rearrangeRows(&$rows) {
 		$_currentCaseIdentifier 	= 0;
 		$_previousCaseIdentifier 	= 0;
 		$_cursor 					= -1;
 		$_totalDuration				= 0;
 		$_rearrangedRows 			= array();
-		foreach($rows as $_row){
+		/*(foreach($rows as $_row){
 			$_currentCaseIdentifier 				= $_row['case_id'];
 			if($_currentCaseIdentifier != $_previousCaseIdentifier) {
 				if($_cursor > -1) {
@@ -201,7 +292,7 @@ class CRM_Casereports_Form_Report_coach extends CRM_Report_Form {
 			$_previousCaseIdentifier 				= $_currentCaseIdentifier;
 		}
 		$_rearrangedRows[$_cursor][] = array("activity_type" => "<b>Totaal</b>", "activity_date" => "<b>-</b>", "activity_duration" => "<b>".$_totalDuration."</b>", "activity_status" => "<b>-</b>");
-		$rows = $_rearrangedRows;
+		$rows = $_rearrangedRows;*/
 	}
 	
 }
