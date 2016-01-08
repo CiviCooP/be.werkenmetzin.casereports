@@ -163,7 +163,7 @@ class CRM_Casereports_Form_Report_coach extends CRM_Report_Form {
 		$case_role = implode(",", $this->_params['case_role_value']);
 
 		$this->_where = " WHERE `ca`.`is_current_revision` = 1";
-		if ($this->params['my_cases_value']) {
+		if ($this->_params['my_cases_value']) {
 			$this->_where .= " AND `cr`.`contact_id_b` = " . $this->coachIdentifier;
 		} else {
 			$this->show_coach = true;
@@ -186,7 +186,7 @@ class CRM_Casereports_Form_Report_coach extends CRM_Report_Form {
 	function postProcess() {
 		$this->beginPostProcess();
 
-		if ($this->params['my_cases_value']) {
+		if ($this->_params['my_cases_value']) {
 			$this->show_coach = false;
 		} else {
 			$this->show_coach = true;
