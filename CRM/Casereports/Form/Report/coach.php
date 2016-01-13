@@ -15,9 +15,19 @@ class CRM_Casereports_Form_Report_coach extends CRM_Report_Form {
 
 		$this->fetchCaseStatusses();
 		$rels = CRM_Core_PseudoConstant::relationshipType();
+		$coach_rel_type_id = false;
 		foreach ($rels as $relid => $v) {
 			$this->rel_types[$relid] = $v['label_b_a'];
+			if ($v['label_b_a'] == 'Coach') {
+				$coach_rel_type_id = $relid;
+			}
 		}
+
+		$coaches = array();
+		if ($coach_rel_type_id) {
+			$coaches = $this->coaches($coach_rel_type_id);
+		}
+
 
 		$this->_groupFilter = FALSE;
 		$this->_tagFilter   = FALSE;
@@ -39,6 +49,13 @@ class CRM_Casereports_Form_Report_coach extends CRM_Report_Form {
 						'operatorType' => CRM_Report_Form::OP_MULTISELECT,
 						'options' => $this->rel_types,
 					),
+					'coach' => array(
+						'title' => ts('Coach'),
+						'type' => CRM_Utils_Type::T_INT,
+						'operatorType' => CRM_Report_Form::OP_MULTISELECT,
+						'options' => $coaches,
+						'pseudofield' => true,
+					),
 					'my_cases' => array(
 						'title' => ts('My cases'),
 						'type' => CRM_Utils_Type::T_BOOLEAN,
@@ -56,6 +73,15 @@ class CRM_Casereports_Form_Report_coach extends CRM_Report_Form {
 		$this->fetchActivityTypes();
 		$this->fetchStatusGroup();
 		$this->fetchCoachIdentifier();
+	}
+
+	function coaches($coach_rel_type_id) {
+		$dao = CRM_Core_DAO::executeQuery("SELECT DISTINCT c.id, c.display_name from civicrm_relationship cr inner join civicrm_contact c on c.id = cr.contact_id_b where cr.case_id IS NOT NULL and cr.relationship_type_id = %1 ORDER BY c.display_name", array(1 => array($coach_rel_type_id, 'Integer')));
+		$coaches = array();
+		while($dao->fetch()) {
+			$coaches[$dao->id] = $dao->display_name;
+		}
+		return $coaches;
 	}
 	
 	function fetchCaseType() {
@@ -157,29 +183,35 @@ class CRM_Casereports_Form_Report_coach extends CRM_Report_Form {
 	function where() {
 
 		$case_status_op = $this->getSQLOperator($this->_params['case_status_op']);
-		$case_status = implode(",", $this->_params['case_status_value']);
+		$case_status =  $this->_params['case_status_value'];
 
 		$case_role_op = $this->getSQLOperator($this->_params['case_role_op']);
-		$case_role = implode(",", $this->_params['case_role_value']);
+		$case_role = $this->_params['case_role_value'];
+
+		$coach_op = $this->getSQLOperator($this->_params['coach_op']);
+		$coach = $this->_params['coach_value'];
 
 		$this->_where = " WHERE `ca`.`is_current_revision` = 1";
 		if ($this->_params['my_cases_value']) {
 			$this->_where .= " AND `cr`.`contact_id_b` = " . $this->coachIdentifier;
 		} else {
 			$this->show_coach = true;
+			if (is_array($coach) && count($coach)) {
+				$this->_where .= " AND `cr`.`contact_id_b` " . $coach_op . " (" . implode(",", $coach) . ")";
+			}
 		}
 		if (is_array($case_status) && count($case_status)) {
-			$this->_where .= " AND `cc`.`status_id` " . $case_status_op . " (" . $case_status . ")";
+			$this->_where .= " AND `cc`.`status_id` " . $case_status_op . " (" . implode(",", $case_status) . ")";
 		}
 		if (is_array($case_role) && count($case_role)) {
-			$this->_where .= " AND `cr`.`relationship_type_id` " . $case_role_op . " (" . $case_role . ")";
+			$this->_where .= " AND `cr`.`relationship_type_id` " . $case_role_op . " (" . implode(",", $case_role) . ")";
 		}
 		$this->_where .= " AND `ca`.`activity_type_id` IN (".$this->_activityTypes->intakegesprek['value'].", ".$this->_activityTypes->verdiepingsgesprek['value'].", ".$this->_activityTypes->synthese['value'].")";
 	}
 	
 	function orderBy() {
 		$this->_orderBy = "
-			ORDER BY `client`, `case_id`, `ca`.`activity_date_time`
+			ORDER BY `coach`, `client`, `case_id`, `ca`.`activity_date_time`
 		";
 	}
 	
@@ -207,7 +239,6 @@ class CRM_Casereports_Form_Report_coach extends CRM_Report_Form {
 			'chequenummer' => array("title" => 'chequenummer', "no_display" => true)
 		);
 		$sql = $this->buildQuery(TRUE);
-		//echo $sql; exit();
 		//if(strpos($sql, "LIMIT")) $sql = substr($sql, 0, strpos($sql, "LIMIT"));
 		$rows = array();
 		$this->buildRows($sql, $rows);
