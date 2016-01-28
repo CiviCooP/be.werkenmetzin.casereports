@@ -40,6 +40,8 @@ class CRM_Casereports_Form_Report_Facturatie extends CRM_Report_Form {
 
     protected $_customGroupExtends = array('Case');
 
+    protected $_absoluteUrl = true;
+
     public function __construct() {
         $this->case_types = CRM_Case_PseudoConstant::caseType();
         $this->case_statuses = CRM_Core_OptionGroup::values('case_status');
