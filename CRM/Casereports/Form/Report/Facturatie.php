@@ -180,6 +180,16 @@ class CRM_Casereports_Form_Report_Facturatie extends CRM_Report_Form {
             'civicrm_case_contact' => array(
                 'dao' => 'CRM_Case_DAO_CaseContact',
             ),
+            'civicrm_activity' => array(
+                'filters' => array(
+                  'activity_type_id' => array(
+                    'title' => ts('Activity Type'),
+                    'operatorType' => CRM_Report_Form::OP_MULTISELECT,
+                    'options' => CRM_Core_PseudoConstant::activityType(TRUE, TRUE, FALSE, 'label', TRUE),
+                    'pseudofield' => TRUE,
+                  ),
+                )
+            )
         );
 
         parent::__construct();
@@ -332,7 +342,7 @@ inner join civicrm_contact $c2 on ${c2}.id=${ccc}.contact_id
     }
 
     public function groupBy() {
-        $this->_groupBy = "GROUP BY {$this->_aliases['civicrm_c2']}.id";
+        $this->_groupBy = "GROUP BY {$this->_aliases['civicrm_case']}.id";
     }
 
     public function postProcess() {
@@ -347,6 +357,11 @@ inner join civicrm_contact $c2 on ${c2}.id=${ccc}.contact_id
         $this->formatDisplay($rows);
         $this->doTemplateAssignment($rows);
         $this->endPostProcess($rows);
+    }
+
+    public function modifyColumnHeaders()
+    {
+        $this->_columnHeaders['minuten'] = array('title' => 'Minuten');
     }
 
     /**
@@ -414,11 +429,25 @@ inner join civicrm_contact $c2 on ${c2}.id=${ccc}.contact_id
                 $rows[$rowNum]['civicrm_case_is_deleted'] = $this->deleted_labels[$value];
                 $entryFound = TRUE;
             }
+            
+            $rows[$rowNum]['minuten'] = $this->calculateMinutes($row['civicrm_case_id']);
 
             if (!$entryFound) {
                 break;
             }
         }
+    }
+
+    public function calculateMinutes($case_id) {
+        $activity_type_ids = CRM_Utils_Array::value("activity_type_id_value", $this->_params);
+        $sql = "SELECT SUM(duration)
+                FROM civicrm_activity
+                INNER JOIN civicrm_case_activity ON civicrm_case_activity.activity_id = civicrm_activity.id
+                WHERE civicrm_activity.is_current_revision = 1
+                AND civicrm_activity.activity_type_id IN (".implode(",", $activity_type_ids).")
+                AND civicrm_case_activity.case_id = %1";
+        $params[1] = array($case_id, 'Integer');
+        return CRM_Core_DAO::singleValueQuery($sql, $params);
     }
 
 }
