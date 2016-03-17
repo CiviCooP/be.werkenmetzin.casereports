@@ -345,6 +345,11 @@ inner join civicrm_contact $c2 on ${c2}.id=${ccc}.contact_id
         $this->_groupBy = "GROUP BY {$this->_aliases['civicrm_case']}.id";
     }
 
+    public function orderBy() {
+        $c2 = $this->_aliases['civicrm_c2'];
+        $this->_orderBy = "ORDER BY `".$c2."`.`sort_name`";
+    }
+
     public function postProcess() {
 
         $this->beginPostProcess();
@@ -429,7 +434,7 @@ inner join civicrm_contact $c2 on ${c2}.id=${ccc}.contact_id
                 $rows[$rowNum]['civicrm_case_is_deleted'] = $this->deleted_labels[$value];
                 $entryFound = TRUE;
             }
-            
+
             $rows[$rowNum]['minuten'] = $this->calculateMinutes($row['civicrm_case_id']);
 
             if (!$entryFound) {
