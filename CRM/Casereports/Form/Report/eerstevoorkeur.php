@@ -48,7 +48,7 @@ class CRM_Casereports_Form_Report_eerstevoorkeur extends CRM_Report_Form {
 		try {
 			$this->_activityTypesOptionGroup				= civicrm_api3('OptionGroup','getsingle',array("name" => "activity_type"));
 			$this->_activityTypes 							= new stdClass;
-			$this->_activityTypes->aanmeldinginschrijving 	= civicrm_api3('OptionValue','getsingle',array("name" => "Aanmelding Inschrijving", "option_group_id" => $this->_activityTypesOptionGroup['id']));
+			$this->_activityTypes->aanmeldinginschrijving 	= civicrm_api3('OptionValue','getsingle',array("name" => "form_ind_job_coaching", "option_group_id" => $this->_activityTypesOptionGroup['id']));
 		} catch (Exception $e) {
 			die("<h1>Activiteitstypes ontbreken!</h1>");
 		}
