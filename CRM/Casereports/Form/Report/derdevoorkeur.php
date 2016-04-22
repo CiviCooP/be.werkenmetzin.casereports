@@ -64,7 +64,7 @@ protected $_addressField = FALSE;
 	
 	function fetchDerdelocatie() {
 		try {
-			$this->_customGroup 					= civicrm_api3('CustomGroup','getsingle',array("title" => "ind_job_coaching"));
+			$this->_customGroup 					= civicrm_api3('CustomGroup','getsingle',array("name" => "ind_job_coaching"));
 			$this->_customFields 					= new stdClass;
 			$this->_customFields->locatievoorkeur 	= civicrm_api3('CustomField','getsingle',array("name" => "location_preference_3rd", "custom_group_id" => $this->_customGroup['id']));
 			$this->_customFields->contactvoorkeur 	= civicrm_api3('CustomField','getsingle',array("name" => "contact_preference", "custom_group_id" => $this->_customGroup['id']));

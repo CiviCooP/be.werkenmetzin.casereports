@@ -64,7 +64,7 @@ class CRM_Casereports_Form_Report_eerstevoorkeur extends CRM_Report_Form {
 	
 	function fetchEerstelocatie() {
 		try {
-			$this->_customGroup 					= civicrm_api3('CustomGroup','getsingle',array("title" => "ind_job_coaching"));
+			$this->_customGroup 					= civicrm_api3('CustomGroup','getsingle',array("name" => "ind_job_coaching"));
 			$this->_customFields 					= new stdClass;
 			$this->_customFields->locatievoorkeur 	= civicrm_api3('CustomField','getsingle',array("name" => "location_preference_1st", "custom_group_id" => $this->_customGroup['id']));
 			$this->_customFields->contactvoorkeur 	= civicrm_api3('CustomField','getsingle',array("name" => "contact_preference", "custom_group_id" => $this->_customGroup['id']));
