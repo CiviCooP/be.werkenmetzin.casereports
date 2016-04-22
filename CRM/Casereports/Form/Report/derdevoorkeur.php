@@ -64,11 +64,11 @@ protected $_addressField = FALSE;
 	
 	function fetchDerdelocatie() {
 		try {
-			$this->_customGroup 					= civicrm_api3('CustomGroup','getsingle',array("title" => "Aanmelding Inschrijving"));
+			$this->_customGroup 					= civicrm_api3('CustomGroup','getsingle',array("title" => "ind_job_coaching"));
 			$this->_customFields 					= new stdClass;
-			$this->_customFields->locatievoorkeur 	= civicrm_api3('CustomField','getsingle',array("name" => "Locatievoorkeur_3e", "custom_group_id" => $this->_customGroup['id']));
-			$this->_customFields->contactvoorkeur 	= civicrm_api3('CustomField','getsingle',array("name" => "voorkeur_contact", "custom_group_id" => $this->_customGroup['id']));
-			$this->_customFields->dagvoorkeur 		= civicrm_api3('CustomField','getsingle',array("name" => "Indien_overdag_welke_dagen_hebben_uw_voorkeur", "custom_group_id" => $this->_customGroup['id']));
+			$this->_customFields->locatievoorkeur 	= civicrm_api3('CustomField','getsingle',array("name" => "location_preference_3rd", "custom_group_id" => $this->_customGroup['id']));
+			$this->_customFields->contactvoorkeur 	= civicrm_api3('CustomField','getsingle',array("name" => "contact_preference", "custom_group_id" => $this->_customGroup['id']));
+			$this->_customFields->dagvoorkeur 		= civicrm_api3('CustomField','getsingle',array("name" => "preference_days", "custom_group_id" => $this->_customGroup['id']));
 		} catch (Exception $e) {
 			die("<h1>Custom veld Locatievoorkeur_1e, voorkeur_contact of Indien_overdag_welke_dagen_hebben_uw_voorkeur of custom group Aanmelding Inschrijving ontbreekt!</h1>");
 		}
