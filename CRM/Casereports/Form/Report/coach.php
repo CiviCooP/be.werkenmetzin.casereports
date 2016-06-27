@@ -13,6 +13,7 @@ class CRM_Casereports_Form_Report_coach extends CRM_Report_Form {
 	
 	function __construct() {
 
+		$this->fetchActivityTypes();
 		$this->fetchCaseStatusses();
 		$rels = CRM_Core_PseudoConstant::relationshipType();
 		$coach_rel_type_id = false;
@@ -37,6 +38,13 @@ class CRM_Casereports_Form_Report_coach extends CRM_Report_Form {
 				'fields' => array(
 				),
 				'filters' => array(
+					'activity_type_id' => array(
+						'title' => ts('Activity type'),
+						'operatorType' => CRM_Report_Form::OP_MULTISELECT,
+						'options' => CRM_Core_OptionGroup::values('activity_type'),
+						'pseudofield' => true,
+						'default' => $this->_activityTypes,
+					),
 					'case_status' => array(
 						'title' => ts('Status'),
 						'operatorType' => CRM_Report_Form::OP_MULTISELECT,
@@ -70,7 +78,6 @@ class CRM_Casereports_Form_Report_coach extends CRM_Report_Form {
 		parent::__construct();
 		$this->fetchCaseType();
 		$this->fetchChequenummer();
-		$this->fetchActivityTypes();
 		$this->fetchStatusGroup();
 		$this->fetchCoachIdentifier();
 	}
@@ -104,10 +111,16 @@ class CRM_Casereports_Form_Report_coach extends CRM_Report_Form {
 	function fetchActivityTypes() {
 		try {
 			$this->_activityTypesOptionGroup			= civicrm_api3('OptionGroup','getsingle',array("name" => "activity_type"));
-			$this->_activityTypes 						= new stdClass;
-			$this->_activityTypes->intakegesprek 		= civicrm_api3('OptionValue','getsingle',array("name" => "intakegesprek", "option_group_id" => $this->_activityTypesOptionGroup['id']));
-			$this->_activityTypes->verdiepingsgesprek 	= civicrm_api3('OptionValue','getsingle',array("name" => "verdiepingsgesprek", "option_group_id" => $this->_activityTypesOptionGroup['id']));
-			$this->_activityTypes->synthese 			= civicrm_api3('OptionValue','getsingle',array("name" => "synthese", "option_group_id" => $this->_activityTypesOptionGroup['id']));
+			$_activityTypes 						= new stdClass;
+			$_activityTypes->intakegesprek 		= civicrm_api3('OptionValue','getsingle',array("name" => "intakegesprek", "option_group_id" => $this->_activityTypesOptionGroup['id']));
+			$_activityTypes->verdiepingsgesprek 	= civicrm_api3('OptionValue','getsingle',array("name" => "verdiepingsgesprek", "option_group_id" => $this->_activityTypesOptionGroup['id']));
+			$_activityTypes->synthese 			= civicrm_api3('OptionValue','getsingle',array("name" => "synthese", "option_group_id" => $this->_activityTypesOptionGroup['id']));
+
+			$this->_activityTypes = array();
+			$this->_activityTypes[] = $_activityTypes->intakegesprek['value'];
+			$this->_activityTypes[] = $_activityTypes->verdiepingsgesprek['value'];
+			$this->_activityTypes[] = $_activityTypes->synthese['value'];
+
 		} catch (Exception $e) {
 			die("<h1>Activiteitstypes ontbreken!</h1>");
 		}
@@ -182,6 +195,9 @@ class CRM_Casereports_Form_Report_coach extends CRM_Report_Form {
 	
 	function where() {
 
+		$activity_type_op = $this->getSQLOperator($this->_params['activity_type_id_op']);
+		$activity_type =  $this->_params['activity_type_id_value'];
+
 		$case_status_op = $this->getSQLOperator($this->_params['case_status_op']);
 		$case_status =  $this->_params['case_status_value'];
 
@@ -206,7 +222,9 @@ class CRM_Casereports_Form_Report_coach extends CRM_Report_Form {
 		if (is_array($case_role) && count($case_role)) {
 			$this->_where .= " AND `cr`.`relationship_type_id` " . $case_role_op . " (" . implode(",", $case_role) . ")";
 		}
-		$this->_where .= " AND `ca`.`activity_type_id` IN (".$this->_activityTypes->intakegesprek['value'].", ".$this->_activityTypes->verdiepingsgesprek['value'].", ".$this->_activityTypes->synthese['value'].")";
+		if (is_array($activity_type) && count($activity_type)) {
+			$this->_where .= " AND `ca`.`activity_type_id` " . $activity_type_op . " (" . implode(",", $activity_type) . ")";
+		}
 	}
 	
 	function orderBy() {
