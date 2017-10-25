@@ -117,6 +117,7 @@ class CRM_Casereports_Form_Report_coach extends CRM_Report_Form {
 		try {
 			$this->_customGroup = civicrm_api3('CustomGroup','getsingle',array("name" => "Coachingsinformatie"));
 			$this->_customField = civicrm_api3('CustomField','getsingle',array("name" => "Chequenummer", "custom_group_id" => $this->_customGroup['id']));
+			$this->_customFieldBetaalwijze = civicrm_api3('CustomField','getsingle',array("name" => "Chequenummer_kiezen", "custom_group_id" => $this->_customGroup['id']));
 		} catch (Exception $e) {
 			die("<h1>Custom veld Chequenummer of custom group Coachingsinformatie ontbreekt!</h1>");
 		}
@@ -188,7 +189,9 @@ class CRM_Casereports_Form_Report_coach extends CRM_Report_Form {
 			`cov`.`label` as `activity_status`,
 			`cclient`.`display_name` as `client`,
 			`ccoach`.`display_name` as `coach`,
-			`cvci`.`".$this->_customField['column_name']."` as `chequenummer`
+			`cvci`.`".$this->_customField['column_name']."` as `chequenummer`,
+			`cvci`.`".$this->_customFieldBetaalwijze['column_name']."` AS `betaalwijze`,
+			civicrm_value_km.km as km
 		";
 	}
 	
@@ -205,6 +208,7 @@ class CRM_Casereports_Form_Report_coach extends CRM_Report_Form {
 			LEFT JOIN `".$this->_customGroup['table_name']."` as `cvci` ON `cc`.`id` = `cvci`.`entity_id`
 			LEFT JOIN `civicrm_option_value` as `cat` ON `ca`.`activity_type_id` = `cat`.`value` AND `cat`.`option_group_id` = ".$this->_activityTypesOptionGroup['id']."
 			LEFT JOIN civicrm_value_factuurcoach ON civicrm_value_factuurcoach.entity_id = ca.id
+			LEFT JOIN civicrm_value_km ON civicrm_value_km.entity_id = ca.id
 		";
 		
 	}
@@ -252,6 +256,10 @@ class CRM_Casereports_Form_Report_coach extends CRM_Report_Form {
 		} elseif (isset($this->_params['gefactureerd']) && $this->_params['gefactureerd'] == 0) {
 			$this->_where .= " AND (civicrm_value_factuurcoach.gefactureerd != '1' OR civicrm_value_factuurcoach.gefactureerd IS NULL)";
 		}
+		
+		if (isset($this->_submitValues['export_case_id']) && !empty($this->_submitValues['export_case_id'])) {
+      $this->_where .= " AND cc.id = '".$this->_submitValues['export_case_id']."'";
+    }
 	}
 	
 	function orderBy() {
@@ -281,7 +289,9 @@ class CRM_Casereports_Form_Report_coach extends CRM_Report_Form {
 			'case_start_date' => array("title" => 'case_start_date', "no_display" => true),
 			'case_end_date' => array("title" => 'case_end_date', "no_display" => true),
 			'client' => array("title" => 'client', "no_display" => true),
-			'chequenummer' => array("title" => 'chequenummer', "no_display" => true)
+			'chequenummer' => array("title" => 'chequenummer', "no_display" => true),
+			'betaalwijze' => array("title" => $this->_customFieldBetaalwijze['label'], "no_display" => false),
+			'km' => array("title" => ts('km'), "no_display" => false),
 		);
 		$sql = $this->buildQuery(TRUE);
 		//if(strpos($sql, "LIMIT")) $sql = substr($sql, 0, strpos($sql, "LIMIT"));
@@ -346,6 +356,25 @@ class CRM_Casereports_Form_Report_coach extends CRM_Report_Form {
 		}
 		$this->assign('sectionTotals', $sectionTotals);
 	}
+
+	public function doTemplateAssignment(&$rows) {
+    parent::doTemplateAssignment($rows);
+
+    $this->buildCaseList();
+  }
+	
+	protected function buildCaseList() {
+    $cases = array('' => ts(' - Alle dossiers - '));
+    $case = $this->_aliases['civicrm_case'];
+    $client = $this->_aliases['client'];
+    $select = "SELECT DISTINCT cc.id, cc.subject, cclient.sort_name as client, DATE_FORMAT(`cc`.`start_date`, '%d-%c-%Y') as `case_start_date`";
+    $sql = "{$select} {$this->_from} {$this->_where} {$this->_groupBy} {$this->_having} ORDER BY cclient.sort_name, cc.id";
+    $dao = CRM_Core_DAO::executeQuery($sql);
+    while($dao->fetch()) {
+      $cases[$dao->id] = $dao->client .' - ' . $dao->case_start_date;
+    }
+    $this->add('select', 'export_case_id', ts('Select parent case'), $cases, true);
+  }
 
 	function rearrangeRows(&$rows) {
 		$_currentCaseIdentifier 	= 0;
