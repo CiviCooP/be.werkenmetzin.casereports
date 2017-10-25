@@ -45,6 +45,13 @@ class CRM_Casereports_Form_Report_coach extends CRM_Report_Form {
 						'pseudofield' => true,
 						'default' => $this->_activityTypes,
 					),
+					'activity_status' => array(
+						'title' => ts('Activity Status'),
+						'operatorType' => CRM_Report_Form::OP_MULTISELECT,
+						'options' => CRM_Core_OptionGroup::values('activity_status'),
+						'pseudofield' => true,
+						'default' => array(),
+					),
 					'case_status' => array(
 						'title' => ts('Status'),
 						'operatorType' => CRM_Report_Form::OP_MULTISELECT,
@@ -63,6 +70,13 @@ class CRM_Casereports_Form_Report_coach extends CRM_Report_Form {
 						'operatorType' => CRM_Report_Form::OP_MULTISELECT,
 						'options' => $coaches,
 						'pseudofield' => true,
+					),
+					'gefactureerd' => array(
+						'title' => ts('Gefactureerd'),
+						'operatorType' => CRM_Report_Form::OP_SELECT,
+						'options' => array('' => ts('- select -'), '1' => ts('Yes'), '0' => ts('No')),
+						'pseudofield' => true,
+						'default' => 0
 					),
 					'my_cases' => array(
 						'title' => ts('My cases'),
@@ -190,13 +204,18 @@ class CRM_Casereports_Form_Report_coach extends CRM_Report_Form {
 			LEFT JOIN `civicrm_contact` as `ccoach` ON `cr`.`contact_id_b` = `ccoach`.`id`
 			LEFT JOIN `".$this->_customGroup['table_name']."` as `cvci` ON `cc`.`id` = `cvci`.`entity_id`
 			LEFT JOIN `civicrm_option_value` as `cat` ON `ca`.`activity_type_id` = `cat`.`value` AND `cat`.`option_group_id` = ".$this->_activityTypesOptionGroup['id']."
+			LEFT JOIN civicrm_value_factuurcoach ON civicrm_value_factuurcoach.entity_id = ca.id
 		";
+		
 	}
 	
 	function where() {
 
 		$activity_type_op = $this->getSQLOperator($this->_params['activity_type_id_op']);
 		$activity_type =  $this->_params['activity_type_id_value'];
+		
+		$activity_status_op = $this->getSQLOperator($this->_params['activity_status_op']);
+		$activity_status =  $this->_params['activity_status_value'];
 
 		$case_status_op = $this->getSQLOperator($this->_params['case_status_op']);
 		$case_status =  $this->_params['case_status_value'];
@@ -216,6 +235,9 @@ class CRM_Casereports_Form_Report_coach extends CRM_Report_Form {
 				$this->_where .= " AND `cr`.`contact_id_b` " . $coach_op . " (" . implode(",", $coach) . ")";
 			}
 		}
+		if (is_array($activity_status) && count($activity_status)) {
+			$this->_where .= " AND `ca`.`status_id` " . $activity_status_op . " (" . implode(",", $activity_status) . ")";
+		}
 		if (is_array($case_status) && count($case_status)) {
 			$this->_where .= " AND `cc`.`status_id` " . $case_status_op . " (" . implode(",", $case_status) . ")";
 		}
@@ -224,6 +246,11 @@ class CRM_Casereports_Form_Report_coach extends CRM_Report_Form {
 		}
 		if (is_array($activity_type) && count($activity_type)) {
 			$this->_where .= " AND `ca`.`activity_type_id` " . $activity_type_op . " (" . implode(",", $activity_type) . ")";
+		}
+		if (isset($this->_params['gefactureerd']) && $this->_params['gefactureerd'] == 1) {
+			$this->_where .= " AND civicrm_value_factuurcoach.gefactureerd = '1'";
+		} elseif (isset($this->_params['gefactureerd']) && $this->_params['gefactureerd'] == 0) {
+			$this->_where .= " AND (civicrm_value_factuurcoach.gefactureerd != '1' OR civicrm_value_factuurcoach.gefactureerd IS NULL)";
 		}
 	}
 	
